@@ -1,0 +1,510 @@
+---
+title: "BR9"
+author: "Steph Jordan"
+output: html_document
+---
+
+```{r}
+library(bayesrules)
+library(tidyverse)
+library(rstan)
+library(rstanarm)
+library(bayesplot)
+library(tidybayes)
+library(janitor)
+library(broom.mixed)
+```
+
+
+## Exercise 9.1
+
+a. A normal regression model is a reasonable choice for a prior model for B0 and B1 because these values can live anywhere along the real line--they can be negative, positive, or zero.
+
+b. Sigma must be positive, therefore, an exponential model is more appropriate.
+
+c. Weakly informative priors reflect general uncertainty about the model parameters from the outset (at the prior stage). Weakly informative priors reflect uncertainty across a range of sensible parameter values. Vague priors might be so vague as to put weight on non-sensible parameter values (e.g. in the temperature example, assuming an unrealistically high value for B1--say, 1 million more bike rides for a degree increase in temperature). In this sense, weakly informative priors are more efficient than vague priors, since they restrict the range of B0/B1 values explored to a sensible range. 
+
+## Exercise 9.2
+
+a. X=arm length; Y=height
+
+b. Y=annual CO2 emissions; X= distance between home and work
+
+c. X=age; Y=vocabulary
+
+d. X=sleep habits; Y=reaction time
+
+## Exercise 9.3
+
+a. B0 is the height at age 0 months; B1 should be positive (grow taller with age)
+
+b. B0 is the number of github commits in the past week when they have 0 followers; B1 should be positive (more commits==more productive/collaborative==>more followers)
+
+c. B0 is the number of inches of rainfall at the start of the day (time==0); B1 should be negative (as rainfall increases, fewer visitors come)
+
+d. B0 is the number of hours a person sleeps when they watch no Netflix; B1 should be negative (more Netflix, less sleep)
+
+
+## Exercise 9.4
+
+The bigger the sigma, the weaker the relationship between X and Y (greater sigma==greater variability in correlation between X and Y). 
+
+## Exercise 9.5
+
+a. Y = annual orange juice consumption; X = age (in years)
+
+b. $$ Yi| \mu, \sigma \text{~} N(\mu, \sigma^2)$$
+
+c. $$ Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
+ \mu i = \beta0 + \beta1(Xi)$$
+
+d. The unknown parameters are B0, B1, and sigma, and can take on the following values:
+
+$$ \beta0 \text{ ~ } N(m0, s0)$$
+
+$$ \beta1 \text{ ~ } N(m1, s1)$$
+
+$$ \sigma \text{ ~ } Exp(l) $$
+
+
+e. Since B0 is the amount of orange juice consumed per year at the age of 0 years, we'll say the mean for B0 is 0 with a standard deviation of 0.001 (since it would be unlikely for a zero year old to consume very much juice).
+
+$$ \beta0 \text{ ~ } N(0, 0.001) $$
+
+B1 is the amount of orange juice consumed per year for each additional year. Therefore, we will estimate that the increase in juice consumption per year with each year increase in age is about 0.25, with a small degree of variance (0.001).
+
+$$ \beta1 \text{ ~ } N(0.25, 0.001)$$
+Sigma expresses the strength of the relationship between X and Y. Since not everyone likes orange juice, I hypothesize some significant variability in how much increases in age affect consumption levels. A mean sigma of 0.75 yields an l of 4/3. 
+
+$$ \sigma \text{ ~ } Exp(1.33)$$
+We can plot the distribution of each of our parameters as follows:
+```{r}
+plot_normal(mean = 0, sd = 0.001) + 
+  labs(x = "beta_0c", y = "pdf")
+plot_normal(mean = 0.25, sd = 0.001) + 
+  labs(x = "beta_1", y = "pdf")
+plot_gamma(shape = 1, rate = 1.33) + 
+  labs(x = "sigma", y = "pdf")
+```
+
+
+## Exercise 9.6
+
+a. Y = tomorrow's high temperature; X = today's high temperature
+
+b. $$ Yi| \mu, \sigma \text{~} N(\mu, \sigma^2)$$
+
+c. $$ Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
+ \mu i = \beta0 + \beta1(Xi)$$
+
+d. The unknown parameters are B0, B1, and sigma, and can take on the following values:
+
+$$ \beta0 \text{ ~ } N(m0, s0)$$
+
+$$ \beta1 \text{ ~ } N(m1, s1)$$
+$$ \sigma \text{ ~ } Exp(l)$$
+e. Since B0 is tomorrow's high temperature when today's high temperature is 0, we'll estimate a mean of 0 for B0 and a small standard deviation -- 10 (since if the temperature is 0 today, its unlikely that the temperature tomorrow could be that much hotter, and couldn't conceivably get much colder (0 degrees F is very cold)).
+
+$$ \beta0 \text{ ~ } N(0, 10)$$
+B1 represents the amount that one degree increase in today's high temperature translates into in changes in tomorrow's high temperature. I would guess that this would be close to a 1-to-1 ratio. I'm going to estimate a mean of 1 for B1, with a moderate standard deviation (0.005).
+
+$$ \beta1 \text{ ~ } N(1, 0.005)$$
+Sigma expresses the strength of the relationship between X and Y. Since often today's temperature is not the best predictor of tomorrow's temperature, we're going to estimate a high average standard deviation (30). This yields an l of 1/30==0.0333.
+
+$$ \sigma \text{ ~ } Exp(0.033)$$
+## Exercise 9.7
+
+a. False: MCMC gives us an approximation of the posterior
+
+b. True
+
+## Exercise 9.8
+
+Revisit once you can download the data!!!!!!!!!!!!!!!
+
+a. First we'll load the dataset
+```{r}
+data("bunnies_bayes")
+```
+
+
+```{r}
+glimpse(bunnies)
+bunnies <- bunnies |> drop_na()
+bunnies |>  summarize(mean_age=mean(age), mean_height=mean(height), sd_age=sd(age), sd_height=sd(height))
+```
+
+Here is the model:
+```{r}
+bunnies_model <- stan_glm(age ~ height, data = bunnies,
+                       family = gaussian,
+                       prior_intercept = normal(5000, 1000),
+                       prior = normal(100, 40), 
+                       prior_aux = exponential(0.0008),
+                       chains = 4, iter = 5000*2, seed = 84735)
+```
+
+b. First, we'll load the dataset
+
+```{r}
+data("songs")
+```
+
+
+```{r}
+glimpse(songs)
+songs <- songs |> drop_na()
+songs |>  summarize(mean_age=mean(age), mean_height=mean(height), sd_age=sd(age), sd_height=sd(height))
+```
+
+Here is the model:
+```{r}
+bunnies_model <- stan_glm(snaps ~ clicks, data = songs,
+                       family = gaussian,
+                       prior_intercept = normal(5000, 1000),
+                       prior = normal(100, 40), 
+                       prior_aux = exponential(0.0008),
+                       chains = 4, iter = 5000*2, seed = 84735)
+```
+
+c. First, we'll load the dataset
+
+```{r}
+data("dogs")
+```
+
+
+```{r}
+glimpse(dogs)
+dogs <- dogs |> drop_na()
+dogs |>  summarize(mean_age=mean(age), mean_height=mean(height), sd_age=sd(age), sd_height=sd(height))
+```
+
+Here is the model:
+```{r}
+bunnies_model <- stan_glm(age ~ happiness, data = dogs,
+                       family = gaussian,
+                       prior_intercept = normal(5000, 1000),
+                       prior = normal(100, 40), 
+                       prior_aux = exponential(0.0008),
+                       chains = 4, iter = 5000*2, seed = 84735)
+```
+
+## Exercise 9.9
+
+a. Full specification of model:
+$$ data: Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
+ \mu i = \beta0 + \beta1(Xi)$$
+ 
+
+ 
+ $$ priors: \beta0 \text{ ~ } N(5000, 2000) $$
+
+$$ \beta1 \text{ ~ } N(-10, 5) $$
+$$ \sigma \text{ ~ } Exp(0.0005) $$
+
+Plotting our prior understanding:
+```{r}
+plot_normal(mean = 5000, sd = 2000) + 
+  labs(x = "beta_0c", y = "pdf")
+plot_normal(mean = -10, sd = 5) + 
+  labs(x = "beta_1", y = "pdf")
+plot_gamma(shape = 1, rate = 0.0005) + 
+  labs(x = "sigma", y = "pdf")
+```
+
+b. First, we'll download the data
+```{r}
+data(bikes)
+```
+
+```{r}
+glimpse(bikes)
+```
+
+Now, we'll build the model:
+```{r}
+bike_model <- stan_glm(rides ~ humidity, data = bikes,
+                       family = gaussian,
+                       prior_intercept = normal(5000, 2000),
+                       prior = normal(-10, 5), 
+                       prior_aux = exponential(0.0005),
+                       chains = 5, iter = 4000*2, seed = 84735, prior_PD = TRUE)
+```
+
+Plotting results
+```{r}
+# Trace plots of parallel chains
+mcmc_trace(bike_model, size = 0.1)
+
+# Density plots of parallel chains
+mcmc_dens_overlay(bike_model)
+```
+Checking out posterior summary statistics
+
+```{r}
+tidy(bike_model, effects = c("fixed", "aux"),
+     conf.int = TRUE, conf.level = 0.80)
+```
+
+c. Convert bike model into a dataframe
+```{r}
+# Store the 4 chains for each parameter in 1 data frame
+bike_model_df <- as.data.frame(bike_model)
+
+```
+
+Plot 100 simulated model lines
+```{r}
+# 50 simulated model lines
+bikes %>%
+  add_fitted_draws(bike_model, n = 100) %>%
+  ggplot(aes(x = humidity, y = rides)) +
+    geom_line(aes(y = .value, group = .draw), alpha = 0.15) + 
+    geom_point(data = bikes, size = 0.05)
+```
+
+d. Our prior understanding of the relationship between humidity and rides is that as humidity increases, the number of rides decreases.
+
+## Exercise 9.10
+
+a. Plotting bikes data
+
+```{r}
+# Load and plot data
+data(bikes)
+ggplot(bikes, aes(x = humidity, y = rides)) + 
+  geom_point(size = 0.5) + 
+  geom_smooth(method = "lm", se = FALSE)
+```
+The relationship is negative, but not particularly strongly negative (there is a lot of variability, and the slope is low).
+
+b. No, because the data is so scattered that we need to incorporate a high level of variability in our unknown sigma which makes Bayesian Normal regression a better fit.
+
+## Exercise 9.11
+a. Running same model to estimate posterior:
+```{r}
+bike_model <- stan_glm(rides ~ humidity, data = bikes,
+                       family = gaussian,
+                       prior_intercept = normal(5000, 2000),
+                       prior = normal(-10, 5), 
+                       prior_aux = exponential(0.0005),
+                       chains = 5, iter = 4000*2, seed = 84735)
+```
+
+b. Calculating diagnostics:
+```{r}
+neff_ratio(bike_model)
+rhat(bike_model)
+```
+Since the effective sample size ratios are just below 1, the effective sample size ratio is not ideal (better to be above 1). The Rhat values are right around 1, which is ideal. 
+
+However, upon exploring the plots (below), the chains appear to be mixing quickly and stabilizing. 
+
+Plot results:
+```{r}
+# Trace plots of parallel chains
+mcmc_trace(bike_model, size = 0.1)
+
+# Density plots of parallel chains
+mcmc_dens_overlay(bike_model)
+```
+
+c. Plotting 100 posterior lines
+```{r}
+# Store the 4 chains for each parameter in 1 data frame
+bike_model_df <- as.data.frame(bike_model)
+
+```
+
+Plot 100 simulated model lines
+```{r}
+# 50 simulated model lines
+bikes %>%
+  add_fitted_draws(bike_model, n = 100) %>%
+  ggplot(aes(x = humidity, y = rides)) +
+    geom_line(aes(y = .value, group = .draw), alpha = 0.15) + 
+    geom_point(data = bikes, size = 0.05)
+```
+The posterior is MUCH more concentrated in terms of B0 (y-intercept around 4000)--in the prior model, y-intercepts ranged from 2500 to 8000. The posterior also has a much more consistent slope (B1) than in the prior model. 
+
+## Exercise 9.12
+
+a. Creating a tidy summary of our model:
+```{r}
+tidy(bike_model, effects = c("fixed", "aux"),
+     conf.int = TRUE, conf.level = 0.95)
+```
+b. The posterior sigma represents the amount of variability in the relationship between X and Y *after* the data has been incorporated into the model. The posterior sigma (1573) is less than the prior hypothesized sigma (2000), meaning the data significantly lowered the range of variability in the X-Y relationship.
+
+c. The 95% posterior credible interval for humidity ranges from -15 to -1.8. This means that 95% of the time, B1 (the amount of change in rides for a one unit change in humidity, or the slope of the line) will fall between -15 and -1.76. 
+
+d. Yes, because the entire 95% confidence interval falls within the negatives.
+
+## Exercise 9.13 
+
+a. Selecting one of the draws from the model and using that to estimate the typical number of riders for 90% humidity days:
+```{r}
+first_set <- head(bike_model_df, 1)
+first_set
+```
+```{r}
+mu <- first_set$`(Intercept)` + first_set$humidity * 90
+mu
+```
+
+This gives us the new mu; now we can plug it in using the already calculated sigma to predict the number of riders on 90% humidity days.
+
+```{r}
+set.seed(84735)
+y_new <- rnorm(1, mean = mu, sd = first_set$sigma)
+y_new
+
+set.seed(84735)
+predict_75 <- bike_model_df %>% 
+  mutate(mu = `(Intercept)` + humidity*90,
+         y_new = rnorm(20000, mean = mu, sd = sigma))
+
+head(predict_75, 4)
+
+
+```
+The mu column represents the typical ridership on a day that is 90% humidity; y_new represents an approximation of the mu value for tomorrow, an individual 90% humidity day. 
+
+b. Plotting density plots for mu and y_new values. 
+
+```{r}
+# Plot the posterior model of the typical ridership on 90 degree days
+ggplot(predict_75, aes(x = mu)) + 
+  geom_density()
+
+# Plot the posterior predictive model of tomorrow's ridership
+ggplot(predict_75, aes(x = y_new)) + 
+  geom_density()
+```
+The posterior plot for the typical 90% humidity day is much more concentrated (mean ridership has a range of 1000, and a peak density of values of 0.0035). In contrast, the tomorrow posterior model exhibits a range of average ridership values spanning from 0 to 9000, and has a peak density of values of 0.00025. Therefore, this model approximates a much wider range of average ridership values. 
+
+c. Calculating an 80% confidence interval for tomorrow's riders:
+```{r}
+# Simulate a set of predictions
+set.seed(84735)
+shortcut_prediction <- 
+  posterior_predict(bike_model, newdata = data.frame(humidity = 90))
+
+```
+
+```{r}
+posterior_interval(shortcut_prediction, prob = 0.8)
+```
+This very wide ranging set of values for mean ridership reflects the observations we gleaned from the density plot.
+
+d. We can plot the density function to confirm that the shortcut prediction model follows our calculations in a and b. 
+```{r}
+# Plot the approximate predictive model
+mcmc_dens(shortcut_prediction) +  xlab("predicted ridership on a 90humidity day")
+```
+
+This reflects the same range (0 to 9000) that we observed in the "tomorrow" plot in part b, our individually calculated prediction of the posterior.
+
+## Exercise 9.14
+
+a. I would guess that with higher windspeeds we would observe fewer riders--that is, a negative relationship.
+
+b. Full specification of model:
+$$ data: Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
+ \mu i = \beta0 + \beta1(Xi)$$
+ 
+
+ We'll estimate that on an average windy day, there will be about 4000 riders, with a sizable degree of variability. 
+ $$ priors: \beta0 \text{ ~ } N(4000, 2000) $$
+We'll estimate that a single mph change in the windspeed will decrease ridership by 100, but this could range from 60 to 140.
+$$ \beta1 \text{ ~ } N(-100, 20) $$
+We will estimate that ridership is highly correlated with wind speed (strong negative relationship). We'll estimate a standard deviation of 100. 
+$$ \sigma \text{ ~ } Exp(0.01) $$
+c. Simulating and plotting the priors
+
+```{r}
+bike_model <- stan_glm(rides ~ windspeed, data = bikes,
+                       family = gaussian,
+                       prior_intercept = normal(4000, 2000),
+                       prior = normal(-100, 20), 
+                       prior_aux = exponential(0.01),
+                       chains = 4, iter = 4000*2, seed = 84735, prior_PD=TRUE)
+```
+
+
+Plotting simulated lines
+```{r}
+
+# 100 simulated model lines
+bikes %>%
+  add_fitted_draws(bike_model, n = 100) %>%
+  ggplot(aes(x = windspeed, y = rides)) +
+    geom_line(aes(y = .value, group = .draw), alpha = 0.15) + 
+    geom_point(data = bikes, size = 0.05)
+
+```
+d. Plotting windspeed vs ridership based on the data
+```{r}
+ggplot(bikes, aes(x = windspeed, y = rides)) + 
+  geom_point(size = 0.5) + 
+  geom_smooth(method = "lm", se = FALSE)
+```
+I estimated B0 pretty accurately; my prior B1 is a bit too high (in the data, we see rides decrease from 4000 to 2000 over a 30 windspeed interval; in my model we see a decline as large as 8000 to 0 (though more commonly 4000 to 0) in the same 30 windspeed interval).
+
+## Exercise 9.15
+
+Simulating the posterior
+```{r}
+bike_model <- stan_glm(rides ~ windspeed, data = bikes,
+                       family = gaussian,
+                       prior_intercept = normal(4000, 2000),
+                       prior = normal(-100, 20), 
+                       prior_aux = exponential(0.01),
+                       chains = 4, iter = 4000*2, seed = 84735)
+```
+
+Plotting simulated lines
+```{r}
+
+# 100 simulated model lines
+bikes %>%
+  add_fitted_draws(bike_model, n = 100) %>%
+  ggplot(aes(x = windspeed, y = rides)) +
+    geom_line(aes(y = .value, group = .draw), alpha = 0.15) + 
+    geom_point(data = bikes, size = 0.05)
+
+```
+The posterior much more clearly resembles the data than my prior estimates. Again, the estimated lines are more strongly concentrated around a mean B0 of 4000, and B1 appears to be much lower than in my prior estimates. We can see this in that rides decline by 2000 over the 0-30 windspeed interval, which reflects the windspeed v ridership plot much more than my prior plot (which demonstrates a much greater (negative) slope (B1)). 
+
+## Exercise 9.16
+
+a. Downloading data and simulating the model:
+```{r}
+data("penguins_bayes")
+```
+
+```{r}
+pengs_model <- stan_glm(flipper_length_mm ~ bill_length_mm, data = penguins_bayes,
+                       family = gaussian,
+                       prior_intercept = normal(200, 25),
+                       prior = normal(8, 1), 
+                       prior_aux = exponential(0.001),
+                       chains = 4, iter = 5000*2, seed = 84735, prior_PD=TRUE)
+```
+b. Checking out the prior_summary() 
+
+```{r}
+prior_summary(pengs_model)
+```
+
+Full specification of model:
+$$ data: Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
+ \mu i = \beta0 + \beta1(Xi)$$
+ 
+ $$ priors: \beta0 \text{ ~ } N(200, 25) $$
+We'll estimate that a single mph change in the windspeed will decrease ridership by 100, but this could range from 60 to 140.
+$$ \beta1 \text{ ~ } N(8, 1) $$
+We will estimate that ridership is highly correlated with wind speed (strong negative relationship). We'll estimate a standard deviation of 100. 
+$$ \sigma \text{ ~ } Exp(0.001) $$
+
