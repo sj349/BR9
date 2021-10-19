@@ -1,7 +1,9 @@
 ---
 title: "BR9"
 author: "Steph Jordan"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r}
@@ -482,6 +484,7 @@ The posterior much more clearly resembles the data than my prior estimates. Agai
 a. Downloading data and simulating the model:
 ```{r}
 data("penguins_bayes")
+pengs <- penguins_bayes %>% drop_na() 
 ```
 
 ```{r}
@@ -507,4 +510,170 @@ We'll estimate that a single mph change in the windspeed will decrease ridership
 $$ \beta1 \text{ ~ } N(8, 1) $$
 We will estimate that ridership is highly correlated with wind speed (strong negative relationship). We'll estimate a standard deviation of 100. 
 $$ \sigma \text{ ~ } Exp(0.001) $$
+c. Plotting 100 plausible model lines:
+```{r}
+# 100 simulated model lines
+pengs %>% 
+  add_fitted_draws(pengs_model, n = 100) %>%
+  ggplot(aes(x = bill_length_mm, y = flipper_length_mm)) +
+    geom_line(aes(y = .value, group = .draw), alpha = 0.15) + 
+    geom_point(data = pengs, size = 0.05)
 
+```
+
+d. My prior was a bit too aggressive in terms of the magnitude of the relationship between bill_length_mm and flipper_length_mm (B1 is too high). Secondly, my B0 (the y intercept, or flipper length at a bill length of 0, was drastically underestimated)-- it appears to be closer to 200, whereas my prior estimated it as low as 0.
+
+## Exercise 9.17
+
+a. Plotting relationship between flipper length and bill length:
+```{r}
+ggplot(pengs, aes(x = bill_length_mm, y = flipper_length_mm)) + 
+  geom_point(size = 0.5) + 
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+b. Simple normal regression could work here, since the scatter of points around the trendline is fairly narrow (i.e. the relationship is strong). Therefore, we wouldn't necessarily need an indicator (sigma) to demonstrate the variability in the weakness/strength of the relationship.
+
+## Exercise 9.18
+
+a. Simulating posterior understanding of penguins model
+
+```{r}
+pengs_model <- stan_glm(flipper_length_mm ~ bill_length_mm, data = pengs,
+                       family = gaussian,
+                       prior_intercept = normal(200, 25),
+                       prior = normal(8, 1), 
+                       prior_aux = exponential(0.001),
+                       chains = 4, iter = 5000*2, seed = 84735)
+```
+
+b. Plotting posterior model lines
+```{r}
+# 100 simulated model lines
+pengs %>% 
+  add_fitted_draws(pengs_model, n = 100) %>%
+  ggplot(aes(x = bill_length_mm, y = flipper_length_mm)) +
+    geom_line(aes(y = .value, group = .draw), alpha = 0.15) + 
+    geom_point(data = pengs, size = 0.05)
+
+```
+
+c. Providing a 90% confidence interval for the posterior model:
+```{r}
+tidy(pengs_model, effects = c("fixed", "aux"),
+     conf.int = TRUE, conf.level = 0.90)
+```
+
+c. The bill length coefficient (B1) is 1.745. This means that for every millimeter increase in bill length, flipper length is expected to increase by 1.745 on average.
+
+d. Yes; the entire 90% confidence interval for bill length coefficient is positive, meaning that the relationship between bill length and flipper length is positive. 
+
+## Exercise 9.19
+
+a. Selecting one of the draws from the model and using that to estimate the typical flipper length for 51 mm bill length:
+```{r}
+# Store the 4 chains for each parameter in 1 data frame
+peng_model_df <- as.data.frame(pengs_model)
+```
+
+
+```{r}
+first_set <- head(peng_model_df, 1)
+first_set
+```
+```{r}
+mu <- first_set$`(Intercept)` + first_set$bill_length_mm * 51
+mu
+```
+
+This gives us the new mu; now we can plug it in to generate a new distribution of flipper lengths that incorporates a set 51 mm bill length.
+
+```{r}
+set.seed(84735)
+y_new <- rnorm(1, mean = mu, sd = first_set$sigma)
+y_new
+
+set.seed(84735)
+predict_51 <- peng_model_df %>% 
+  mutate(mu = `(Intercept)` + bill_length_mm*51,
+         y_new = rnorm(20000, mean = mu, sd = sigma))
+
+head(predict_51, 4)
+
+
+```
+The mu column represents the typical flipper length for a penguin with a bill length of 51 mm; y_new represents an approximation of the mu value for Pablo, an individual penguin with a bill length of 51 mm. 
+
+b. Plotting density plots for mu and y_new values. 
+
+```{r}
+
+ggplot(predict_51, aes(x = mu)) + 
+  geom_density()
+
+
+ggplot(predict_51, aes(x = y_new)) + 
+  geom_density()
+```
+
+The "typical" model is much more densely concentrated, with a peak density of 0.4. The Pablo model is much less densely concentrated, with a peak density that is one tenth of the former (0.04). Accordingly, the spread of the "typical" model (the range of flipper lengths represented in the model) is much narrower than that of Pablo's model (typical ranges from 210 to 216, Pablo ranges from 180 to 240).
+
+c. Predicting 80% confidence interval for Pablo flipper length
+
+```{r}
+
+predict_51 %>% 
+  summarize(mean = mean(y_new),
+            lower_80 = quantile(y_new, 0.1),
+            upper_80 = quantile(y_new, 0.9))
+```
+
+
+d. The 80% confidence interval for the "typical" model would be narrower, because, as aforementioned, the data in the typical model is more densely concentrated.
+
+e. Using posterior_predict() to confirm results
+
+```{r}
+# Simulate a set of predictions
+set.seed(84735)
+shortcut_prediction <- 
+  posterior_predict(pengs_model, newdata = data.frame(bill_length_mm = 51))
+
+
+posterior_interval(shortcut_prediction, prob = 0.8)
+```
+We get the same 80% confidence interval using the posterior_prediction() shortcut as we do for Pablo's model.
+
+## Exercise 9.20
+
+a. The researchers anticipate that for each 1 mm increase in bill length, flipper length will increase by 0.01 mm. They estimate that the distribution of this coefficient (B1) will vary with standard deviation 0.002 (relatively minimal variability). They therefore hypothesize a weakly positive relationship (small, positive slope), with relatively low deviance from the mean of 0.01.
+
+b. Plotting the relationship
+```{r}
+ggplot(pengs, aes(x = body_mass_g, y = flipper_length_mm)) + 
+  geom_point(size = 0.5) + 
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+The relationship between bill length and body mass is positive and fairly strongly concentrated (as is visible in the concentration of points around the trend line).
+
+c. I would guess that sigma is smaller for X=bill_length_mm. Based on the above plot, and the earlier plot of bill_length vs flipper_length, the relationship is much less scattered for X=body_mass_g than X=bill_length_mm.
+
+d. Simulating model
+
+```{r}
+pengs_model <- stan_glm(flipper_length_mm ~ body_mass_g, data = pengs,
+                       family = gaussian,
+                       prior_intercept = normal(200, 50),
+                       prior = normal(0.01, 0.002), 
+                       prior_aux = exponential(0.0001),
+                       chains = 4, iter = 5000*2, seed = 84735)
+```
+
+e. Plotting the posterior of B1
+```{r}
+# Density plots of parallel chains
+mcmc_dens_overlay(pengs_model, pars=c("body_mass_g"))
+```
+
+The most plausible average for body_mass_g is 0.015, which is a bit higher than the researchers hypothesized. Additionally, 1 sd is 0.001 (half of what the researchers hypothesized). Therefore, the variance is also lower than the researchers expected. 
