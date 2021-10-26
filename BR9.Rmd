@@ -122,22 +122,8 @@ b. True
 
 ## Exercise 9.8
 
-Revisit once you can download the data!!!!!!!!!!!!!!!
-
-a. First we'll load the dataset
-```{r}
-data("bunnies_bayes")
-```
-
-
-```{r}
-glimpse(bunnies)
-bunnies <- bunnies |> drop_na()
-bunnies |>  summarize(mean_age=mean(age), mean_height=mean(height), sd_age=sd(age), sd_height=sd(height))
-```
-
-Here is the model:
-```{r}
+a. Bunnies model 
+```{r, eval = FALSE}
 bunnies_model <- stan_glm(age ~ height, data = bunnies,
                        family = gaussian,
                        prior_intercept = normal(5000, 1000),
@@ -146,22 +132,10 @@ bunnies_model <- stan_glm(age ~ height, data = bunnies,
                        chains = 4, iter = 5000*2, seed = 84735)
 ```
 
-b. First, we'll load the dataset
+b. Songs model 
 
-```{r}
-data("songs")
-```
-
-
-```{r}
-glimpse(songs)
-songs <- songs |> drop_na()
-songs |>  summarize(mean_age=mean(age), mean_height=mean(height), sd_age=sd(age), sd_height=sd(height))
-```
-
-Here is the model:
-```{r}
-bunnies_model <- stan_glm(snaps ~ clicks, data = songs,
+```{r, eval = FALSE}
+songs_model <- stan_glm(snaps ~ clicks, data = songs,
                        family = gaussian,
                        prior_intercept = normal(5000, 1000),
                        prior = normal(100, 40), 
@@ -169,22 +143,10 @@ bunnies_model <- stan_glm(snaps ~ clicks, data = songs,
                        chains = 4, iter = 5000*2, seed = 84735)
 ```
 
-c. First, we'll load the dataset
+c. Dogs model
 
-```{r}
-data("dogs")
-```
-
-
-```{r}
-glimpse(dogs)
-dogs <- dogs |> drop_na()
-dogs |>  summarize(mean_age=mean(age), mean_height=mean(height), sd_age=sd(age), sd_height=sd(height))
-```
-
-Here is the model:
-```{r}
-bunnies_model <- stan_glm(age ~ happiness, data = dogs,
+```{r, eval = FALSE}
+dogs_model <- stan_glm(age ~ happiness, data = dogs,
                        family = gaussian,
                        prior_intercept = normal(5000, 1000),
                        prior = normal(100, 40), 
@@ -195,12 +157,10 @@ bunnies_model <- stan_glm(age ~ happiness, data = dogs,
 ## Exercise 9.9
 
 a. Full specification of model:
-$$ data: Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
+$$ Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
  \mu i = \beta0 + \beta1(Xi)$$
  
-
- 
- $$ priors: \beta0 \text{ ~ } N(5000, 2000) $$
+$$ priors: \beta0 \text{ ~ } N(5000, 2000) $$
 
 $$ \beta1 \text{ ~ } N(-10, 5) $$
 $$ \sigma \text{ ~ } Exp(0.0005) $$
@@ -242,6 +202,7 @@ mcmc_trace(bike_model, size = 0.1)
 # Density plots of parallel chains
 mcmc_dens_overlay(bike_model)
 ```
+
 Checking out posterior summary statistics
 
 ```{r}
@@ -279,6 +240,7 @@ ggplot(bikes, aes(x = humidity, y = rides)) +
   geom_point(size = 0.5) + 
   geom_smooth(method = "lm", se = FALSE)
 ```
+
 The relationship is negative, but not particularly strongly negative (there is a lot of variability, and the slope is low).
 
 b. No, because the data is so scattered that we need to incorporate a high level of variability in our unknown sigma which makes Bayesian Normal regression a better fit.
@@ -328,6 +290,7 @@ bikes %>%
     geom_line(aes(y = .value, group = .draw), alpha = 0.15) + 
     geom_point(data = bikes, size = 0.05)
 ```
+
 The posterior is MUCH more concentrated in terms of B0 (y-intercept around 4000)--in the prior model, y-intercepts ranged from 2500 to 8000. The posterior also has a much more consistent slope (B1) than in the prior model. 
 
 ## Exercise 9.12
@@ -384,6 +347,8 @@ ggplot(predict_75, aes(x = mu)) +
 ggplot(predict_75, aes(x = y_new)) + 
   geom_density()
 ```
+
+
 The posterior plot for the typical 90% humidity day is much more concentrated (mean ridership has a range of 1000, and a peak density of values of 0.0035). In contrast, the tomorrow posterior model exhibits a range of average ridership values spanning from 0 to 9000, and has a peak density of values of 0.00025. Therefore, this model approximates a much wider range of average ridership values. 
 
 c. Calculating an 80% confidence interval for tomorrow's riders:
@@ -400,7 +365,7 @@ posterior_interval(shortcut_prediction, prob = 0.8)
 ```
 This very wide ranging set of values for mean ridership reflects the observations we gleaned from the density plot.
 
-d. We can plot the density function to confirm that the shortcut prediction model follows our calculations in a and b. 
+d. We can plot the density function to confirm that the shortcut prediction model follows our calculations in a and b
 ```{r}
 # Plot the approximate predictive model
 mcmc_dens(shortcut_prediction) +  xlab("predicted ridership on a 90humidity day")
@@ -413,12 +378,13 @@ This reflects the same range (0 to 9000) that we observed in the "tomorrow" plot
 a. I would guess that with higher windspeeds we would observe fewer riders--that is, a negative relationship.
 
 b. Full specification of model:
-$$ data: Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
+$$ Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
  \mu i = \beta0 + \beta1(Xi)$$
+ 
  
 
  We'll estimate that on an average windy day, there will be about 4000 riders, with a sizable degree of variability. 
- $$ priors: \beta0 \text{ ~ } N(4000, 2000) $$
+ $$  \beta0 \text{ ~ } N(4000, 2000) $$
 We'll estimate that a single mph change in the windspeed will decrease ridership by 100, but this could range from 60 to 140.
 $$ \beta1 \text{ ~ } N(-100, 20) $$
 We will estimate that ridership is highly correlated with wind speed (strong negative relationship). We'll estimate a standard deviation of 100. 
@@ -446,12 +412,16 @@ bikes %>%
     geom_point(data = bikes, size = 0.05)
 
 ```
+
+
 d. Plotting windspeed vs ridership based on the data
 ```{r}
 ggplot(bikes, aes(x = windspeed, y = rides)) + 
   geom_point(size = 0.5) + 
   geom_smooth(method = "lm", se = FALSE)
 ```
+
+
 I estimated B0 pretty accurately; my prior B1 is a bit too high (in the data, we see rides decrease from 4000 to 2000 over a 30 windspeed interval; in my model we see a decline as large as 8000 to 0 (though more commonly 4000 to 0) in the same 30 windspeed interval).
 
 ## Exercise 9.15
@@ -477,6 +447,8 @@ bikes %>%
     geom_point(data = bikes, size = 0.05)
 
 ```
+
+
 The posterior much more clearly resembles the data than my prior estimates. Again, the estimated lines are more strongly concentrated around a mean B0 of 4000, and B1 appears to be much lower than in my prior estimates. We can see this in that rides decline by 2000 over the 0-30 windspeed interval, which reflects the windspeed v ridership plot much more than my prior plot (which demonstrates a much greater (negative) slope (B1)). 
 
 ## Exercise 9.16
@@ -502,10 +474,10 @@ prior_summary(pengs_model)
 ```
 
 Full specification of model:
-$$ data: Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
+$$ Yi| \beta0, \beta1, \sigma \text{~} N(\mu i, \sigma^2) \text{ with } 
  \mu i = \beta0 + \beta1(Xi)$$
  
- $$ priors: \beta0 \text{ ~ } N(200, 25) $$
+ $$ \beta0 \text{ ~ } N(200, 25) $$
 We'll estimate that a single mph change in the windspeed will decrease ridership by 100, but this could range from 60 to 140.
 $$ \beta1 \text{ ~ } N(8, 1) $$
 We will estimate that ridership is highly correlated with wind speed (strong negative relationship). We'll estimate a standard deviation of 100. 
@@ -564,7 +536,7 @@ tidy(pengs_model, effects = c("fixed", "aux"),
      conf.int = TRUE, conf.level = 0.90)
 ```
 
-c. The bill length coefficient (B1) is 1.745. This means that for every millimeter increase in bill length, flipper length is expected to increase by 1.745 on average.
+The bill length coefficient (B1) is 1.745. This means that for every millimeter increase in bill length, flipper length is expected to increase by 1.745 on average.
 
 d. Yes; the entire 90% confidence interval for bill length coefficient is positive, meaning that the relationship between bill length and flipper length is positive. 
 
@@ -627,7 +599,6 @@ predict_51 %>%
             lower_80 = quantile(y_new, 0.1),
             upper_80 = quantile(y_new, 0.9))
 ```
-
 
 d. The 80% confidence interval for the "typical" model would be narrower, because, as aforementioned, the data in the typical model is more densely concentrated.
 
